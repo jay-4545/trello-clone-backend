@@ -1,15 +1,5 @@
 // src/seed.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// Run once to create the super_admin account.
-// Usage:
-//   npx ts-node src/seed.ts          (development)
-//   node dist/seed.js                (after npm run build)
-//
-// Reads credentials from .env:
-//   ADMIN_EMAIL=admin@yourdomain.com
-//   ADMIN_PASSWORD=YourStrongPass@123
-//   ADMIN_NAME=Super Admin
-// ─────────────────────────────────────────────────────────────────────────────
+
 import "dotenv/config";
 import sequelize from "./config/db";
 import { setupAssociations } from "./config/associations";

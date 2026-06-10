@@ -1,15 +1,5 @@
 // src/cluster.ts
-/**
- * Cluster mode — spawns one worker per CPU core.
- * Workers share the same port; the OS load-balances connections between them.
- * Socket.IO uses the Redis adapter so cross-worker pub/sub works correctly.
- *
- * Usage:
- *   npm run start:cluster
- *
- * For Kubernetes / Docker: run single workers per container and use a
- * reverse-proxy (nginx / ingress) for load balancing instead of this file.
- */
+
 import cluster from "cluster";
 import os from "os";
 import logger from "./utils/logger";
