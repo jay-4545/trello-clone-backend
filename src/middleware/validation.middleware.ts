@@ -1,6 +1,7 @@
 // src/middleware/validation.middleware.ts
 import { Request, Response, NextFunction } from "express";
 import { sendBadRequest } from "../utils/response";
+import { recordError } from "../modules/error-log/error-log.service";
 
 type Rule = {
   field: string;
@@ -36,6 +37,20 @@ export const validate = (rules: Rule[]) =>
       if (r.pattern && typeof v === "string" && !r.pattern.test(v)) errors.push(r.patternMessage ?? `'${r.field}' invalid format`);
       if (r.custom) { const e = r.custom(v); if (e) errors.push(e); }
     }
-    if (errors.length) { sendBadRequest(res, "Validation failed", errors); return; }
+    if (errors.length) {
+      recordError({
+        req,
+        source: "validation",
+        statusCode: 400,
+        message: errors.join("; "),
+        responseMessage: "Validation failed",
+        validationErrors: errors,
+        errorName: "ValidationError",
+        level: "warning",
+        isOperational: true,
+      });
+      sendBadRequest(res, "Validation failed", errors);
+      return;
+    }
     next();
   };

@@ -49,21 +49,25 @@ export interface CloudinaryUploadResult {
 export async function uploadToCloudinary(
     buffer: Buffer,
     folder: string,
-    publicId?: string
+    publicId?: string,
+    resourceType: "image" | "auto" = "image"
 ): Promise<CloudinaryUploadResult> {
-    // FIX: second gate — verify actual file magic bytes before uploading.
-    // Prevents a renamed .exe/.php uploaded with Content-Type: image/jpeg.
-    const detectedMime = detectMimeFromBuffer(buffer);
-    if (!detectedMime || !ALLOWED_MIME_TYPES.includes(detectedMime)) {
-        throw new Error("File content does not match an allowed image type");
+    if (resourceType === "image") {
+        // FIX: second gate — verify actual file magic bytes before uploading.
+        const detectedMime = detectMimeFromBuffer(buffer);
+        if (!detectedMime || !ALLOWED_MIME_TYPES.includes(detectedMime)) {
+            throw new Error("File content does not match an allowed image type");
+        }
     }
 
     return new Promise((resolve, reject) => {
         const options: Record<string, unknown> = {
             folder,
-            resource_type: "image",
-            transformation: [{ quality: "auto", fetch_format: "auto" }],
+            resource_type: resourceType,
         };
+        if (resourceType === "image") {
+            options.transformation = [{ quality: "auto", fetch_format: "auto" }];
+        }
         if (publicId) options.public_id = publicId;
 
         const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
@@ -74,6 +78,25 @@ export async function uploadToCloudinary(
         stream.end(buffer);
     });
 }
+
+const ATTACHMENT_MIME_TYPES = [
+    ...ALLOWED_MIME_TYPES,
+    "application/pdf",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+const attachmentFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (!ATTACHMENT_MIME_TYPES.includes(file.mimetype)) {
+        cb(new Error("File type not allowed for attachments"));
+        return;
+    }
+    cb(null, true);
+};
+
+export const uploadAttachment = () =>
+    multer({ storage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: attachmentFileFilter }).single("attachment");
 
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
     try {

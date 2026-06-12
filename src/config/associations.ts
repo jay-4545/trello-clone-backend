@@ -11,6 +11,7 @@ import Notification from "../modules/notification/notification.model";
 import WorkspaceMember from "../modules/workspace/workspace-member.model";
 import Workspace from "../modules/workspace/workspace.model";
 import Todo from "../modules/todo/todo.model";
+import ErrorLog from "../modules/error-log/error-log.model";
 
 export function setupAssociations() {
     // ─── User ───────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ export function setupAssociations() {
     User.hasMany(Notification, { foreignKey: "userId", as: "notifications" });
     User.hasMany(Workspace, { foreignKey: "ownerId", as: "ownedWorkspaces" });
     User.hasMany(Todo, { foreignKey: "userId", as: "todos" });
+    User.hasMany(ErrorLog, { foreignKey: "userId", as: "errorLogs" });
 
     // ─── Workspace ──────────────────────────────────────────────────────────
     Workspace.belongsTo(User, { foreignKey: "ownerId", as: "owner" });
@@ -80,6 +82,9 @@ export function setupAssociations() {
 
     // ─── Todo ─────────────────────────────────────────────────────────────────
     Todo.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+    // ─── ErrorLog ─────────────────────────────────────────────────────────────
+    ErrorLog.belongsTo(User, { foreignKey: "userId", as: "user" });
 }
 
 export {
@@ -94,4 +99,5 @@ export {
     Comment,
     Notification,
     Todo,
+    ErrorLog,
 };

@@ -3,6 +3,13 @@ import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../../config/db";
 import { NotificationType } from "../../types";
 
+export interface NotificationMetadata {
+    workspaceId?: number;
+    boardId?: number;
+    listId?: number;
+    cardId?: number;
+}
+
 export interface NotificationAttributes {
     id: number;
     userId: number;           // recipient
@@ -12,6 +19,7 @@ export interface NotificationAttributes {
     body: string;
     entityType: "card" | "board" | "workspace" | "comment";
     entityId: number;
+    metadata: NotificationMetadata;
     isRead: boolean;
     readAt: Date | null;
     createdAt?: Date;
@@ -19,7 +27,7 @@ export interface NotificationAttributes {
 }
 
 export interface NotificationCreationAttributes
-    extends Optional<NotificationAttributes, "id" | "actorId" | "isRead" | "readAt"> { }
+    extends Optional<NotificationAttributes, "id" | "actorId" | "metadata" | "isRead" | "readAt"> { }
 
 class Notification extends Model<NotificationAttributes, NotificationCreationAttributes>
     implements NotificationAttributes {
@@ -31,6 +39,7 @@ class Notification extends Model<NotificationAttributes, NotificationCreationAtt
     public body!: string;
     public entityType!: "card" | "board" | "workspace" | "comment";
     public entityId!: number;
+    public metadata!: NotificationMetadata;
     public isRead!: boolean;
     public readAt!: Date | null;
     public readonly createdAt!: Date;
@@ -46,6 +55,7 @@ Notification.init({
     body: { type: DataTypes.TEXT, allowNull: false },
     entityType: { type: DataTypes.ENUM("card", "board", "workspace", "comment"), allowNull: false },
     entityId: { type: DataTypes.INTEGER, allowNull: false },
+    metadata: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
     isRead: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     readAt: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
 }, {

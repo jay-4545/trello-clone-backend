@@ -16,6 +16,7 @@ import {
 } from "./middleware/security.middleware";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { sendSuccess, sendNotFound } from "./utils/response";
+import { recordError } from "./modules/error-log/error-log.service";
 import env from "./config/env";
 import logger from "./utils/logger";
 
@@ -106,7 +107,19 @@ app.use(
 );
 
 // ─── 12. 404 ─────────────────────────────────────────────────────────────────
-app.use((_req: Request, res: Response) => sendNotFound(res, "Route not found"));
+app.use((req: Request, res: Response) => {
+  recordError({
+    req,
+    source: "not_found",
+    statusCode: 404,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+    responseMessage: "Route not found",
+    errorName: "NotFoundError",
+    level: "warning",
+    isOperational: true,
+  });
+  sendNotFound(res, "Route not found");
+});
 
 // ─── 13. Global error handler ─────────────────────────────────────────────────
 app.use(errorMiddleware);

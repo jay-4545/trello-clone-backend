@@ -6,7 +6,10 @@ import { sendSuccess, sendCreated } from "../../utils/response";
 const h = (fn: Function) => async (req: Request, res: Response, next: NextFunction) => { try { await fn(req, res); } catch (e) { next(e); } };
 
 export const createBoard = h(async (req: Request, res: Response) => { sendCreated(res, "Board created", await S.createBoard(req.user!.id, +req.params.workspaceId, req.body)); });
-export const getBoards = h(async (req: Request, res: Response) => { sendSuccess(res, "Boards", await S.getBoards(req.user!.id, +req.params.workspaceId)); });
+export const getBoards = h(async (req: Request, res: Response) => {
+    const closedOnly = req.query.closedOnly === "true";
+    sendSuccess(res, "Boards", await S.getBoards(req.user!.id, +req.params.workspaceId, { closedOnly }));
+});
 export const getBoardDetail = h(async (req: Request, res: Response) => { sendSuccess(res, "Board", await S.getBoardDetail(+req.params.boardId)); });
 export const updateBoard = h(async (req: Request, res: Response) => { sendSuccess(res, "Updated", await S.updateBoard(+req.params.boardId, req.body)); });
 export const closeBoard = h(async (req: Request, res: Response) => { sendSuccess(res, "Board closed", await S.closeBoard(+req.params.boardId)); });

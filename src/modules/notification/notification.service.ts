@@ -1,6 +1,6 @@
 // src/modules/notification/notification.service.ts
 import { Op } from "sequelize";
-import Notification from "./notification.model";
+import Notification, { NotificationMetadata } from "./notification.model";
 import User from "../auth/auth.model";
 import { NotFoundError } from "../../utils/errors";
 import { emitToUser } from "../../socket";
@@ -14,6 +14,7 @@ interface CreateNotifInput {
     body: string;
     entityType: "card" | "board" | "workspace" | "comment";
     entityId: number;
+    metadata?: NotificationMetadata;
 }
 
 export const createNotification = async (input: CreateNotifInput) => {
@@ -25,6 +26,7 @@ export const createNotification = async (input: CreateNotifInput) => {
         body: input.body,
         entityType: input.entityType,
         entityId: input.entityId,
+        metadata: input.metadata ?? {},
     });
 
     // Push real-time to the target user's socket room
@@ -35,6 +37,7 @@ export const createNotification = async (input: CreateNotifInput) => {
         body: notif.body,
         entityType: notif.entityType,
         entityId: notif.entityId,
+        metadata: notif.metadata,
         createdAt: notif.createdAt,
     });
 

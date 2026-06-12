@@ -6,6 +6,12 @@ import { emitToBoard } from "../../socket";
 import { SocketEvent } from "../../types";
 import Card from "../card/card.model";
 
+export const getArchivedLists = async (boardId: number) =>
+    List.findAll({
+        where: { boardId, isArchived: true },
+        order: [["updatedAt", "DESC"]],
+    });
+
 export const getLists = async (boardId: number) =>
     List.findAll({
         where: { boardId, isArchived: false },
@@ -31,7 +37,9 @@ export const updateList = async (listId: number, boardId: number, body: { name?:
 export const archiveList = async (listId: number, boardId: number) => {
     const list = await List.findOne({ where: { id: listId, boardId } });
     if (!list) throw new NotFoundError("List not found");
-    return list.update({ isArchived: true });
+    const updated = await list.update({ isArchived: true });
+    emitToBoard(boardId, SocketEvent.LIST_UPDATED, { list: updated, isArchived: true });
+    return updated;
 };
 
 export const deleteList = async (listId: number, boardId: number) => {

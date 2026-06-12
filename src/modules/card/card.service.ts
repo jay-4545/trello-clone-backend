@@ -4,6 +4,7 @@ import sequelize from "../../config/db";
 import Card, { ChecklistItem } from "./card.model";
 import CardAssignee from "./card-assignee.model";
 import List from "../list/list.model";
+import Board from "../board/board.model";
 import User from "../auth/auth.model";
 import { NotFoundError, BadRequestError, ForbiddenError } from "../../utils/errors";
 import { emitToBoard } from "../../socket";
@@ -139,11 +140,12 @@ export const moveCard = async (
     if (!targetList) throw new BadRequestError("Target list not on this board");
 
     const newPosition = position ?? await nextPosition(targetListId);
+    const fromListId = card.listId;
 
     await card.update({ listId: targetListId, position: newPosition });
 
     emitToBoard(boardId, SocketEvent.CARD_MOVED, {
-        cardId, fromListId: card.listId, toListId: targetListId, position: newPosition,
+        cardId, fromListId, toListId: targetListId, position: newPosition,
     });
 
     return card;
@@ -177,12 +179,19 @@ export const assignUser = async (cardId: number, boardId: number, targetUserId: 
     emitToBoard(boardId, SocketEvent.CARD_ASSIGNED, { cardId, userId: targetUserId });
 
     // Notify assigned user
+    const board = await Board.findByPk(boardId, { attributes: ["id", "workspaceId"] });
     await createNotification({
         userId: targetUserId, actorId: assignedBy,
         type: "card_assigned",
         title: "You were assigned to a card",
         body: `Card: ${card.title}`,
         entityType: "card", entityId: cardId,
+        metadata: {
+            cardId,
+            boardId,
+            listId: card.listId,
+            workspaceId: board?.workspaceId,
+        },
     });
 
     const assignedUser = await User.findByPk(targetUserId);
@@ -231,6 +240,7 @@ export const deleteChecklistItem = async (cardId: number, boardId: number, itemI
     const card = await findCard(cardId, boardId);
     const checklist = card.checklist.filter((i) => i.id !== itemId);
     await card.update({ checklist });
+    emitToBoard(boardId, SocketEvent.CARD_UPDATED, { cardId, checklist });
     return checklist;
 };
 
@@ -271,6 +281,7 @@ export const bulkMoveCards = async (boardId: number, cardIds: number[], targetLi
             return Card.update({ listId: targetListId, position: pos }, { where: { id, boardId }, transaction: t });
         }));
         await t.commit();
+        emitToBoard(boardId, SocketEvent.CARD_MOVED, { cardIds, targetListId, bulk: true });
     } catch (e) { await t.rollback(); throw e; }
     return { moved: cardIds.length };
 };
@@ -312,6 +323,35 @@ export const getBoardStats = async (boardId: number) => {
 
     return { total, byStatus, overdue, doneThisWeek };
 };
+
+export const uploadAttachment = async (cardId: number, boardId: number, fileBuffer: Buffer, originalName: string) => {
+    const card = await findCard(cardId, boardId);
+    const { url } = await uploadToCloudinary(fileBuffer, "card-attachments", `card_${cardId}_${Date.now()}`, "auto");
+    const attachmentUrl = `${url}#${encodeURIComponent(originalName)}`;
+    const attachments = [...card.attachments, attachmentUrl];
+    await card.update({ attachments });
+    emitToBoard(boardId, SocketEvent.CARD_UPDATED, { cardId, attachments });
+    return { attachments };
+};
+
+export const deleteAttachment = async (cardId: number, boardId: number, index: number) => {
+    const card = await findCard(cardId, boardId);
+    if (index < 0 || index >= card.attachments.length) throw new BadRequestError("Invalid attachment index");
+    const removed = card.attachments[index];
+    const publicId = extractPublicId(removed.split("#")[0]);
+    if (publicId) await deleteFromCloudinary(publicId);
+    const attachments = card.attachments.filter((_, i) => i !== index);
+    await card.update({ attachments });
+    emitToBoard(boardId, SocketEvent.CARD_UPDATED, { cardId, attachments });
+    return { attachments };
+};
+
+export const getArchivedCards = async (boardId: number) =>
+    Card.findAll({
+        where: { boardId, isArchived: true },
+        include: [{ model: User, as: "creator", attributes: ["id", "name", "email", "avatar"] }],
+        order: [["updatedAt", "DESC"]],
+    });
 
 export const uploadCoverImage = async (cardId: number, boardId: number, fileBuffer: Buffer) => {
     const card = await findCard(cardId, boardId);

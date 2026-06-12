@@ -5,7 +5,7 @@ import { authenticate } from "../../middleware/auth.middleware";
 import { requireBoardAccess } from "../../middleware/rbac.middleware";
 import { validate } from "../../middleware/validation.middleware";
 import { writeLimiter } from "../../middleware/rate-limit";
-import { uploadSingle } from "../../middleware/upload.middleware";
+import { uploadSingle, uploadAttachment as uploadAttachmentMiddleware } from "../../middleware/upload.middleware";
 
 const r = Router({ mergeParams: true });
 r.use(authenticate);
@@ -13,6 +13,7 @@ r.use(authenticate);
 // Board-level card routes
 r.get("/search", requireBoardAccess("viewer", "member", "admin"), C.searchCards);
 r.get("/stats", requireBoardAccess("viewer", "member", "admin"), C.getBoardStats);
+r.get("/archived", requireBoardAccess("viewer", "member", "admin"), C.getArchivedCards);
 r.patch("/bulk/move", requireBoardAccess("member", "admin"), writeLimiter(),
     validate([
         { field: "cardIds", required: true, type: "array" },
@@ -42,6 +43,11 @@ r.post("/:cardId/restore", requireBoardAccess("member", "admin"), C.restoreCard)
 // Cover image upload — POST /cards/:cardId/cover  (multipart/form-data, field: "cover")
 r.post("/:cardId/cover", requireBoardAccess("member", "admin"), writeLimiter(),
     uploadSingle("cover"), C.uploadCoverImage);
+
+// Attachments — POST /cards/:cardId/attachments  (multipart/form-data, field: "attachment")
+r.post("/:cardId/attachments", requireBoardAccess("member", "admin"), writeLimiter(),
+    uploadAttachmentMiddleware(), C.uploadAttachment);
+r.delete("/:cardId/attachments/:index", requireBoardAccess("member", "admin"), C.deleteAttachment);
 
 // Assignees
 r.post("/:cardId/assignees", requireBoardAccess("member", "admin"), writeLimiter(),

@@ -43,3 +43,18 @@ export const uploadCoverImage = h(async (req: Request, res: Response) => {
     if (!req.file) throw new BadRequestError("No image file provided");
     sendSuccess(res, "Cover updated", await S.uploadCoverImage(+req.params.cardId, +req.params.boardId, req.file.buffer));
 });
+
+export const uploadAttachment = h(async (req: Request, res: Response) => {
+    if (!req.file) throw new BadRequestError("No file provided");
+    sendSuccess(res, "Attachment uploaded", await S.uploadAttachment(
+        +req.params.cardId, +req.params.boardId, req.file.buffer, req.file.originalname
+    ));
+});
+
+export const deleteAttachment = h(async (req: Request, res: Response) => {
+    sendSuccess(res, "Attachment deleted", await S.deleteAttachment(+req.params.cardId, +req.params.boardId, +req.params.index));
+});
+
+export const getArchivedCards = h(async (req: Request, res: Response) => {
+    sendSuccess(res, "Archived cards", await S.getArchivedCards(+req.params.boardId));
+});

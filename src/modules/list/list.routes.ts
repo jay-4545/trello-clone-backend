@@ -10,6 +10,7 @@ const r = Router({ mergeParams: true });
 r.use(authenticate);
 
 // All under /api/workspaces/:workspaceId/boards/:boardId/lists
+r.get("/archived", requireBoardAccess("viewer", "member", "admin"), C.getArchivedLists);
 r.get("/", requireBoardAccess("viewer", "member", "admin"), C.getLists);
 r.post("/", requireBoardAccess("member", "admin"), writeLimiter(),
     validate([{ field: "name", required: true, type: "string", minLength: 1, maxLength: 200 }]),

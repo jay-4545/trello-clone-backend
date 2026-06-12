@@ -13,7 +13,15 @@ function optional(key: string, fallback: string): string {
 }
 
 const isProd = process.env.NODE_ENV === "production";
-const databaseUrl = process.env.DATABASE_URL;
+
+// Single connection string for all environments (local Postgres, Neon, Render, etc.)
+const DATABASE_URL =
+  process.env.DATABASE_URL ??
+  (isProd ? undefined : "postgresql://postgres:postgres@localhost:5432/trello_db");
+
+if (!DATABASE_URL) {
+  throw new Error("Missing required env var: DATABASE_URL");
+}
 
 const env = {
   PORT: Number(optional("PORT", "5000")),
@@ -29,12 +37,7 @@ const env = {
     : optional("JWT_REFRESH_SECRET", "dev_refresh_secret_xxxxxxxxxxxxxxxxx"),
   JWT_REFRESH_EXPIRES_IN: optional("JWT_REFRESH_EXPIRES_IN", "7d"),
 
-  DATABASE_URL: databaseUrl ?? null,
-  DB_HOST: optional("DB_HOST", "localhost"),
-  DB_PORT: Number(optional("DB_PORT", "5432")),
-  DB_USER: optional("DB_USER", "postgres"),
-  DB_PASSWORD: optional("DB_PASSWORD", ""),
-  DB_NAME: optional("DB_NAME", "trello_db"),
+  DATABASE_URL,
   DB_POOL_MAX: Number(optional("DB_POOL_MAX", "10")),
   DB_POOL_MIN: Number(optional("DB_POOL_MIN", "2")),
 

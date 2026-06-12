@@ -1,4 +1,5 @@
 // src/modules/board/board.service.ts
+import { Op, literal } from "sequelize";
 import sequelize from "../../config/db";
 import Board, { BoardVisibility } from "./board.model";
 import { NotFoundError, ConflictError, BadRequestError } from "../../utils/errors";
@@ -44,11 +45,17 @@ export const createBoard = async (userId: number, workspaceId: number, body: {
     } catch (e) { await t.rollback(); throw e; }
 };
 
-export const getBoards = async (userId: number, workspaceId: number) => {
-    // Get boards the user has explicit membership in, OR workspace boards if member
+export const getBoards = async (userId: number, workspaceId: number, options?: { closedOnly?: boolean }) => {
     const boards = await Board.findAll({
-        where: { workspaceId, isClosed: false },
-        include: [{ model: BoardMember, as: "members", where: { userId }, required: false }],
+        where: {
+            workspaceId,
+            isClosed: options?.closedOnly ? true : false,
+            [Op.or]: [
+                { visibility: { [Op.in]: ["workspace", "public"] } },
+                literal(`EXISTS (SELECT 1 FROM board_members bm WHERE bm."boardId" = "Board"."id" AND bm."userId" = ${Number(userId)})`),
+            ],
+        },
+        include: [{ model: BoardMember, as: "members", required: false }],
         order: [["position", "ASC"]],
     });
     return boards;
@@ -62,10 +69,18 @@ export const getBoardDetail = async (boardId: number) => {
 
 export const updateBoard = async (boardId: number, body: Partial<{
     name: string; description: string; background: string; visibility: BoardVisibility;
+    isStarred: boolean; isClosed: boolean;
 }>) => {
     const board = await Board.findByPk(boardId);
     if (!board) throw new NotFoundError("Board not found");
-    const updated = await board.update(body);
+    const allowed: Partial<typeof body> = {};
+    if (body.name !== undefined) allowed.name = body.name;
+    if (body.description !== undefined) allowed.description = body.description;
+    if (body.background !== undefined) allowed.background = body.background;
+    if (body.visibility !== undefined) allowed.visibility = body.visibility;
+    if (body.isStarred !== undefined) allowed.isStarred = body.isStarred;
+    if (body.isClosed !== undefined) allowed.isClosed = body.isClosed;
+    const updated = await board.update(allowed);
     emitToBoard(boardId, SocketEvent.BOARD_UPDATED, { board: updated });
     return updated;
 };

@@ -2,6 +2,7 @@
 import { Op } from "sequelize";
 import Comment from "./comment.model";
 import Card from "../card/card.model";
+import Board from "../board/board.model";
 import User from "../auth/auth.model";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../../utils/errors";
 import { emitToBoard } from "../../socket";
@@ -64,6 +65,14 @@ export const createComment = async (
 
     emitToBoard(boardId, SocketEvent.COMMENT_CREATED, { comment: full, cardId });
 
+    const board = await Board.findByPk(boardId, { attributes: ["id", "workspaceId"] });
+    const notifMeta = {
+        cardId,
+        boardId,
+        listId: card.listId,
+        workspaceId: board?.workspaceId,
+    };
+
     // Notify card creator if someone else comments
     if (card.createdById !== userId) {
         await createNotification({
@@ -71,6 +80,7 @@ export const createComment = async (
             type: "card_commented", title: "New comment on your card",
             body: `${body.content.slice(0, 80)}…`,
             entityType: "comment", entityId: comment.id,
+            metadata: notifMeta,
         });
     }
 
@@ -82,6 +92,7 @@ export const createComment = async (
                 type: "mention", title: "You were mentioned in a comment",
                 body: body.content.slice(0, 80),
                 entityType: "comment", entityId: comment.id,
+                metadata: notifMeta,
             });
         }
     }

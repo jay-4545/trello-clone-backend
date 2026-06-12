@@ -8,6 +8,7 @@ import BoardMember from "../modules/board/board-member.model";
 import WorkspaceMember from "../modules/workspace/workspace-member.model";
 import Board from "../modules/board/board.model";
 import logger from "../utils/logger";
+import { recordSocketError } from "../modules/error-log/error-log.service";
 import env from "../config/env";
 import { corsOptions } from "../config/cors";
 
@@ -51,13 +52,23 @@ export function initSocket(httpServer: HttpServer): Server {
         const token =
             socket.handshake.auth?.token ||
             socket.handshake.headers?.authorization?.replace("Bearer ", "");
-        if (!token) return next(new Error("Authentication required"));
+        if (!token) {
+            recordSocketError({ event: "handshake", message: "Authentication required", statusCode: 401 });
+            return next(new Error("Authentication required"));
+        }
         try {
             const payload = verifyToken(token);
             socket.userId = payload.id;
             socket.userEmail = payload.email;
             next();
-        } catch {
+        } catch (err) {
+            recordSocketError({
+                event: "handshake",
+                message: (err as Error).message ?? "Invalid or expired token",
+                statusCode: 401,
+                errorName: (err as Error).name,
+                stack: (err as Error).stack,
+            });
             next(new Error("Invalid or expired token"));
         }
     });
@@ -74,6 +85,13 @@ export function initSocket(httpServer: HttpServer): Server {
             try {
                 const hasAccess = await canAccessBoard(socket.userId, boardId);
                 if (!hasAccess) {
+                    recordSocketError({
+                        userId: socket.userId,
+                        event: "board:join",
+                        message: "Access denied",
+                        statusCode: 403,
+                        context: { boardId },
+                    });
                     socket.emit("error", { message: "Access denied" });
                     return;
                 }
@@ -84,6 +102,17 @@ export function initSocket(httpServer: HttpServer): Server {
                 });
                 logger.debug(`User ${socket.userId} joined board:${boardId}`);
             } catch (e) {
+                const err = e as Error;
+                recordSocketError({
+                    userId: socket.userId,
+                    event: "board:join",
+                    message: err.message ?? "board:join failed",
+                    statusCode: 500,
+                    errorName: err.name,
+                    stack: err.stack,
+                    level: "error",
+                    context: { boardId },
+                });
                 logger.error("board:join error", e);
             }
         });

@@ -37,6 +37,9 @@ export const getMyWorkspaces = async (userId: number) => {
 };
 
 export const getWorkspace = async (workspaceId: number, userId: number) => {
+    const membership = await WorkspaceMember.findOne({ where: { workspaceId, userId } });
+    if (!membership) throw new NotFoundError("Workspace not found");
+
     const ws = await Workspace.findByPk(workspaceId, {
         include: [{
             model: WorkspaceMember, as: "members",
@@ -44,7 +47,7 @@ export const getWorkspace = async (workspaceId: number, userId: number) => {
         }],
     });
     if (!ws) throw new NotFoundError("Workspace not found");
-    return ws;
+    return { ...ws.toJSON(), myRole: membership.role };
 };
 
 export const updateWorkspace = async (workspaceId: number, userId: number, body: Partial<{ name: string; description: string }>) => {
